@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameDrop Dashboard</title>
+  <!-- Google Fonts (Outfit, Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #0b0c10;
+      --bg-gradient: radial-gradient(circle at 50% 50%, #151821 0%, #0b0c10 100%);
+      --card-bg: rgba(22, 26, 37, 0.65);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f5f6f9;
+      --text-sub: #8f9cae;
+      --accent-teal: #66fcf1;
+      --accent-purple: #8a2be2;
+      --accent-pink: #ff007f;
+      --accent-green: #39ff14;
+      --glow-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-color);
+      background-image: var(--bg-gradient);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: rgba(11, 12, 16, 0.7);
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 1.2rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .logo-text {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      font-size: 1.6rem;
+      background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .db-badge {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .db-badge.connected {
+      background: rgba(57, 255, 20, 0.1);
+      border-color: rgba(57, 255, 20, 0.3);
+      color: var(--accent-green);
+      box-shadow: 0 0 10px rgba(57, 255, 20, 0.15);
+    }
+
+    .db-badge.disconnected {
+      background: rgba(255, 0, 127, 0.1);
+      border-color: rgba(255, 0, 127, 0.3);
+      color: var(--accent-pink);
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.15);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Tab Controls */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(18, 22, 32, 0.6);
+      padding: 0.4rem;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+      width: fit-content;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      padding: 0.7rem 1.4rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(102, 252, 241, 0.15) 0%, rgba(138, 43, 226, 0.15) 100%);
+      border: 1px solid rgba(102, 252, 241, 0.3);
+      color: var(--accent-teal);
+      text-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+    }
+
+    /* Tab Contents */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Overview Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, border-color 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent-teal), var(--accent-purple));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(102, 252, 241, 0.25);
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+
+    .stat-title {
+      font-size: 0.9rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.6rem;
+    }
+
+    .stat-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    .stat-suffix {
+      font-size: 1rem;
+      color: var(--text-sub);
+      font-weight: 400;
+    }
+
+    /* Cards & Grids */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .game-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .game-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(102, 252, 241, 0.3);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.35), var(--glow-shadow);
+    }
+
+    .game-thumb-container {
+      position: relative;
+      width: 100%;
+      height: 160px;
+      background: #11141c;
+      overflow: hidden;
+    }
+
+    .game-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .game-card:hover .game-thumb {
+      transform: scale(1.08);
+    }
+
+    .platform-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(11, 12, 16, 0.85);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-teal);
+    }
+
+    .discount-badge {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: var(--accent-pink);
+      color: #fff;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .game-info {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .game-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      height: 3.2rem;
+    }
+
+    .game-dates {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-top: auto;
+      margin-bottom: 1rem;
+    }
+
+    .price-normal {
+      color: var(--text-sub);
+      text-decoration: line-through;
+      font-size: 0.85rem;
+    }
+
+    .price-sale {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--accent-teal);
+    }
+
+    .card-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-purple) 100%);
+      color: #0b0c10;
+      border: none;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      text-decoration: none;
+    }
+
+    .card-btn:hover {
+      box-shadow: 0 0 15px rgba(102, 252, 241, 0.4);
+      filter: brightness(1.1);
+    }
+
+    /* Filters & Inputs */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 1.2rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+      align-items: center;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      flex-grow: 1;
+      min-width: 200px;
+    }
+
+    .input-label {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      background: rgba(11, 12, 16, 0.8);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 10px rgba(102, 252, 241, 0.15);
+    }
+
+    .search-row {
+      display: flex;
+      gap: 0.6rem;
+      width: 100%;
+    }
+
+    .btn-search {
+      background: var(--accent-teal);
+      color: #0b0c10;
+      border: none;
+      padding: 0 1.8rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn-search:hover {
+      box-shadow: var(--glow-shadow);
+      filter: brightness(1.1);
+    }
+
+    /* Game Detail & Compare Tables */
+    .compare-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media(min-width: 900px) {
+      .compare-container {
+        grid-template-columns: 350px 1fr;
+      }
+    }
+
+    .game-details-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      height: fit-content;
+    }
+
+    .details-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--accent-teal);
+    }
+
+    .details-desc {
+      font-size: 0.9rem;
+      color: var(--text-sub);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .details-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.9rem;
+    }
+
+    .details-item-label {
+      color: var(--text-sub);
+    }
+
+    .details-item-val {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .stores-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.8rem;
+      overflow-x: auto;
+    }
+
+    .table-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 1.2rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-sub);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .store-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .table-btn {
+      display: inline-block;
+      background: rgba(102, 252, 241, 0.1);
+      color: var(--accent-teal);
+      border: 1px solid rgba(102, 252, 241, 0.3);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .table-btn:hover {
+      background: var(--accent-teal);
+      color: #0b0c10;
+      box-shadow: var(--glow-shadow);
+    }
+
+    /* Cache control page */
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 800px) {
+      .control-grid {
+        grid-template-columns: 3fr 2fr;
+      }
+    }
+
+    .control-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+    }
+
+    .control-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--accent-teal);
+    }
+
+    .control-desc {
+      font-size: 0.95rem;
+      color: var(--text-sub);
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn-sync {
+      background: linear-gradient(135deg, var(--accent-pink) 0%, var(--accent-purple) 100%);
+      color: #fff;
+      border: none;
+      padding: 0.9rem 2rem;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .btn-sync:hover {
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.4);
+      filter: brightness(1.1);
+    }
+
+    .sync-loader {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Live events terminal */
+    .terminal-box {
+      background: #06080d;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: 'Courier New', Courier, monospace;
+      color: var(--accent-green);
+      font-size: 0.85rem;
+      height: 250px;
+      overflow-y: auto;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+      margin-top: 1.5rem;
+    }
+
+    .terminal-line {
+      margin-bottom: 0.4rem;
+      line-height: 1.4;
+    }
+
+    .terminal-line .timestamp {
+      color: var(--text-sub);
+    }
+
+    /* Utility */
+    .empty-state {
+      padding: 3rem;
+      text-align: center;
+      color: var(--text-sub);
+      font-size: 1rem;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+    }
+
+    .source-badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    
+    .source-badge.api {
+      background: rgba(102, 252, 241, 0.1);
+      color: var(--accent-teal);
+      border: 1px solid rgba(102, 252, 241, 0.2);
+    }
+
+    .source-badge.database {
+      background: rgba(57, 255, 20, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(57, 255, 20, 0.2);
+    }
+
+    .source-badge.db_fallback {
+      background: rgba(255, 0, 127, 0.1);
+      color: var(--accent-pink);
+      border: 1px solid rgba(255, 0, 127, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <div class="logo-text">GameDrop Dashboard</div>
+    </div>
+    <div id="db-status-badge" class="db-badge disconnected">
+      <div class="badge-dot"></div>
+      <span id="db-status-text">Database Disconnected</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Tab list -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('overview')">개요</button>
+      <button class="tab-btn" onclick="switchTab('free-games')">무료 게임</button>
+      <button class="tab-btn" onclick="switchTab('discounts')">핫딜 & 할인</button>
+      <button class="tab-btn" onclick="switchTab('search')">게임 검색 & 비교</button>
+      <button class="tab-btn" onclick="switchTab('control')">캐시 제어</button>
+    </div>
+
+    <!-- 1. OVERVIEW TAB -->
+    <div id="overview-tab" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">DB 연결 상태</div>
+          <div id="overview-db-status" class="stat-value" style="color: var(--accent-pink);">DISCONNECTED</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">캐싱된 마스터 게임 수</div>
+          <div id="overview-games-count" class="stat-value">0 <span class="stat-suffix">개</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">캐싱된 가격 정보 수</div>
+          <div id="overview-prices-count" class="stat-value">0 <span class="stat-suffix">개</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">무료 게임 캐시</div>
+          <div id="overview-free-count" class="stat-value">0 <span class="stat-suffix">개</span></div>
+        </div>
+      </div>
+
+      <div class="control-box">
+        <div class="control-title">실시간 MCP 활동 모니터</div>
+        <div class="control-desc">웹 UI 및 MCP 클라이언트 요청을 실시간으로 추적하는 로그 콘솔입니다.</div>
+        <div id="events-terminal" class="terminal-box">
+          <div class="terminal-line"><span class="timestamp">[16:49:07]</span> System initialized and dashboard loaded.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. FREE GAMES TAB -->
+    <div id="free-games-tab" class="tab-content">
+      <div class="filter-bar">
+        <div class="input-group">
+          <label class="input-label">플랫폼 필터</label>
+          <select id="free-platform" class="form-control" onchange="loadFreeGames()">
+            <option value="all">전체 플랫폼</option>
+            <option value="steam">Steam</option>
+            <option value="epic">Epic Games Store</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="free-games-list" class="cards-grid">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+
+    <!-- 3. DISCOUNTS TAB -->
+    <div id="discounts-tab" class="tab-content">
+      <div class="filter-bar">
+        <div class="input-group">
+          <label class="input-label">플랫폼 필터</label>
+          <select id="discount-platform" class="form-control">
+            <option value="all">전체 플랫폼</option>
+            <option value="steam">Steam</option>
+            <option value="epic">Epic Games Store</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">최소 할인율 (%)</label>
+          <input type="number" id="discount-min" class="form-control" value="50" min="0" max="100">
+        </div>
+        <div class="input-group">
+          <label class="input-label">출력 개수 제한</label>
+          <input type="number" id="discount-limit" class="form-control" value="12" min="1" max="100">
+        </div>
+        <button class="btn-search" onclick="loadDiscounts()" style="height: 43px; margin-top: 18px;">딜 검색</button>
+      </div>
+
+      <div id="discounts-list" class="cards-grid">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+
+    <!-- 4. SEARCH & COMPARE TAB -->
+    <div id="search-tab" class="tab-content">
+      <div class="filter-bar">
+        <div class="input-group">
+          <label class="input-label">다국어 검색 (한글, 영어, 약어 가능)</label>
+          <div class="search-row">
+            <input type="text" id="search-keyword" class="form-control" placeholder="예: 몬헌, 사펑, 엘든 링, Cyberpunk..." onkeydown="if(event.key==='Enter') executeSearch()">
+            <button class="btn-search" onclick="executeSearch()">검색</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 검색 결과 리스트 (여러 개 표시) -->
+      <div id="search-list-container" class="cards-grid" style="display: none; margin-bottom: 2.5rem;">
+        <!-- Dynamic content -->
+      </div>
+
+      <div id="search-results-container" class="compare-container" style="display: none;">
+        <!-- Left Column: Game Details -->
+        <div class="game-details-box">
+          <div id="details-game-title" class="details-title">게임 타이틀</div>
+          <div id="details-game-desc" class="details-desc">설명이 여기에 나타납니다.</div>
+          
+          <div class="details-item">
+            <span class="details-item-label">개발사</span>
+            <span id="details-developer" class="details-item-val">-</span>
+          </div>
+          <div class="details-item">
+            <span class="details-item-label">유통사</span>
+            <span id="details-publisher" class="details-item-val">-</span>
+          </div>
+          <div class="details-item">
+            <span class="details-item-label">출시일</span>
+            <span id="details-release-date" class="details-item-val">-</span>
+          </div>
+          <div class="details-item">
+            <span class="details-item-label">장르</span>
+            <span id="details-genres" class="details-item-val">-</span>
+          </div>
+          <div class="details-item" style="border: none;">
+            <span class="details-item-label">스팀 기준가</span>
+            <span id="details-price" class="details-item-val" style="color: var(--accent-teal);">₩ 0</span>
+          </div>
+        </div>
+
+        <!-- Right Column: Price Comparison -->
+        <div class="stores-table-card">
+          <div class="table-title">💵 플랫폼별 최저가 비교</div>
+          <table id="prices-compare-table">
+            <thead>
+              <tr>
+                <th>스토어</th>
+                <th>할인율</th>
+                <th>현재 판매가</th>
+                <th>이동</th>
+              </tr>
+            </thead>
+            <tbody id="prices-compare-body">
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="search-empty-state" class="empty-state">
+        원하는 게임을 입력하여 가격을 비교하고 상세 정보를 수집해 보세요. (예: "몬헌" 입력 시 Fuzzy 매핑을 거쳐 최적의 결과를 반환합니다.)
+      </div>
+    </div>
+
+    <!-- 5. CONTROL TAB -->
+    <div id="control-tab" class="tab-content">
+      <div class="control-grid">
+        <div class="control-box">
+          <div class="control-title">백그라운드 스케줄러 동기화</div>
+          <div class="control-desc">
+            GameDrop MCP 서버는 백그라운드 크론잡(무료게임 12시간 주점, 가격비교 3시간 주기)을 자동으로 구동합니다.
+            만약 캐싱 주기와 별개로 즉시 정보를 수집하고 가격을 갱신하려면 아래의 수동 동기화 요청을 이용해 주세요.
+          </div>
+          <button class="btn-sync" onclick="triggerManualSync()">
+            <div id="sync-icon-loader" class="sync-loader"></div>
+            <span>즉시 캐시 동기화 실행</span>
+          </button>
+        </div>
+
+        <div class="control-box">
+          <div class="control-title">캐시 수명 정책 (TTL)</div>
+          <div class="control-desc" style="font-size: 0.9rem;">
+            데이터 일관성과 API 비용 최소화를 위한 TTL 구성:
+            <br><br>
+            • <strong>무료 게임 정보</strong>: 12시간 (`12 Hours`)
+            <br>
+            • <strong>가격 비교 정보</strong>: 3시간 (`3 Hours`)
+            <br>
+            • <strong>게임 메타데이터</strong>: 24시간 (`24 Hours`)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      const clickedBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.innerText.includes(
+        tabId === 'overview' ? '개요' : 
+        tabId === 'free-games' ? '무료 게임' :
+        tabId === 'discounts' ? '핫딜' :
+        tabId === 'search' ? '게임 검색' : '캐시 제어'
+      ));
+      if (clickedBtn) clickedBtn.classList.add('active');
+
+      const activeContent = document.getElementById(`${tabId}-tab`);
+      if (activeContent) activeContent.classList.add('active');
+
+      addLog(`Switched tab to ${tabId}`);
+
+      if (tabId === 'overview') loadDbStatus();
+      if (tabId === 'free-games') loadFreeGames();
+      if (tabId === 'discounts') loadDiscounts();
+    }
+
+    // Logger util
+    function addLog(message) {
+      const term = document.getElementById('events-terminal');
+      if (!term) return;
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      line.innerHTML = `<span class="timestamp">[${timeStr}]</span> ${message}`;
+      term.appendChild(line);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    // Load Database status
+    async function loadDbStatus() {
+      try {
+        const res = await fetch('/api/db-status');
+        const data = await res.json();
+        
+        const badge = document.getElementById('db-status-badge');
+        const text = document.getElementById('db-status-text');
+        const overviewStatus = document.getElementById('overview-db-status');
+
+        const gamesVal = document.getElementById('overview-games-count');
+        const pricesVal = document.getElementById('overview-prices-count');
+        const freeVal = document.getElementById('overview-free-count');
+
+        gamesVal.innerHTML = `${data.gamesCount} <span class="stat-suffix">개</span>`;
+        pricesVal.innerHTML = `${data.pricesCount} <span class="stat-suffix">개</span>`;
+        freeVal.innerHTML = `${data.freeGamesCount} <span class="stat-suffix">개</span>`;
+
+        if (data.connected) {
+          badge.className = 'db-badge connected';
+          text.innerText = 'Database Connected';
+          overviewStatus.innerText = 'CONNECTED';
+          overviewStatus.style.color = 'var(--accent-green)';
+        } else {
+          badge.className = 'db-badge disconnected';
+          text.innerText = 'Database Disconnected';
+          overviewStatus.innerText = 'DISCONNECTED';
+          overviewStatus.style.color = 'var(--accent-pink)';
+        }
+        addLog('Fetched database integration stats');
+      } catch (e) {
+        addLog(`Failed to fetch database status: ${e.message}`);
+      }
+    }
+
+    // Trigger manual sync
+    async function triggerManualSync() {
+      const loader = document.getElementById('sync-icon-loader');
+      loader.style.display = 'block';
+      addLog('Manual sync request triggered...');
+      
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) {
+          addLog(`Error: ${data.error}`);
+        } else {
+          addLog('Background sync started successfully! Game prices and free game states will update shortly.');
+        }
+      } catch (e) {
+        addLog(`Network failed during sync: ${e.message}`);
+      } finally {
+        setTimeout(() => {
+          loader.style.display = 'none';
+          loadDbStatus();
+        }, 1500);
+      }
+    }
+
+    // Load Free Games
+    async function loadFreeGames() {
+      const platform = document.getElementById('free-platform').value;
+      const list = document.getElementById('free-games-list');
+      list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub);">불러오는 중...</div>';
+      
+      try {
+        const res = await fetch(`/api/free-games?platform=${platform}`);
+        const games = await res.json();
+        
+        if (games.length === 0) {
+          list.innerHTML = '<div style="grid-column: 1/-1;" class="empty-state">현재 배포 중인 무료 게임이 없습니다.</div>';
+          return;
+        }
+
+        list.innerHTML = '';
+        games.forEach(g => {
+          const card = document.createElement('div');
+          card.className = 'game-card';
+          
+          const startStr = new Date(g.startDate).toLocaleDateString();
+          const endStr = new Date(g.endDate).toLocaleDateString();
+          const sourceClass = g.source || 'api';
+
+          const thumbImg = g.thumbnail || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80';
+          card.innerHTML = `
+            <div class="game-thumb-container">
+              <img class="game-thumb" src="${thumbImg}" alt="${g.title}" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80'">
+              <div class="platform-badge">${g.platform}</div>
+            </div>
+            <div class="game-info">
+              <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <span class="source-badge ${sourceClass}">${sourceClass.toUpperCase()}</span>
+              </div>
+              <div class="game-title" title="${g.title}">${g.title}</div>
+              <div class="game-dates">
+                <span>시작: ${startStr}</span>
+                <span>종료: ${endStr}</span>
+              </div>
+              <a href="${g.url}" target="_blank" class="card-btn">지금 무료로 받기</a>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+        addLog(`Loaded ${games.length} free games for platform: ${platform}`);
+      } catch (e) {
+        list.innerHTML = `<div style="grid-column: 1/-1; color: var(--accent-pink);" class="empty-state">데이터 로드 실패: ${e.message}</div>`;
+      }
+    }
+
+    // Load Discounts
+    async function loadDiscounts() {
+      const platform = document.getElementById('discount-platform').value;
+      const min = document.getElementById('discount-min').value;
+      const limit = document.getElementById('discount-limit').value;
+      const list = document.getElementById('discounts-list');
+      list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub);">할인 딜 불러오는 중...</div>';
+      
+      try {
+        const res = await fetch(`/api/discounts?platform=${platform}&minDiscount=${min}&limit=${limit}`);
+        const deals = await res.json();
+        
+        if (deals.length === 0) {
+          list.innerHTML = '<div style="grid-column: 1/-1;" class="empty-state">조건에 부합하는 할인 게임이 없습니다.</div>';
+          return;
+        }
+
+        list.innerHTML = '';
+        deals.forEach(d => {
+          const card = document.createElement('div');
+          card.className = 'game-card';
+          const sourceClass = d.source || 'api';
+
+          const thumbImg = d.thumbnail || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80';
+          card.innerHTML = `
+            <div class="game-thumb-container">
+              <img class="game-thumb" src="${thumbImg}" alt="${d.title}" onerror="this.src='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80'">
+              <div class="platform-badge">${d.store}</div>
+              <div class="discount-badge">-${d.discount}%</div>
+            </div>
+            <div class="game-info">
+              <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <span class="source-badge ${sourceClass}">${sourceClass.toUpperCase()}</span>
+              </div>
+              <div class="game-title" title="${d.title}">${d.title}</div>
+              <div class="price-row">
+                <span class="price-normal">${d.normalPrice}</span>
+                <span class="price-sale">${d.salePrice}</span>
+              </div>
+              <a href="${d.url}" target="_blank" class="card-btn">스토어로 이동</a>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+        addLog(`Loaded ${deals.length} discount deals (Min: ${min}%, Platform: ${platform})`);
+      } catch (e) {
+        list.innerHTML = `<div style="grid-column: 1/-1; color: var(--accent-pink);" class="empty-state">데이터 로드 실패: ${e.message}</div>`;
+      }
+    }
+
+    // Execute Search - Returns list of matching games
+    async function executeSearch() {
+      const keyword = document.getElementById('search-keyword').value.trim();
+      const emptyState = document.getElementById('search-empty-state');
+      const searchList = document.getElementById('search-list-container');
+      const resultsContainer = document.getElementById('search-results-container');
+      
+      if (!keyword) return;
+
+      emptyState.style.display = 'none';
+      searchList.style.display = 'none';
+      resultsContainer.style.display = 'none';
+      searchList.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-sub);">검색 중...</div>';
+      searchList.style.display = 'grid';
+      addLog(`Searching games for keyword: "${keyword}"`);
+
+      try {
+        const searchRes = await fetch(`/api/search?keyword=${encodeURIComponent(keyword)}`);
+        const games = await searchRes.json();
+        
+        if (!games || games.length === 0) {
+          searchList.style.display = 'none';
+          emptyState.style.display = 'block';
+          emptyState.innerText = `"${keyword}"에 대한 검색 결과가 존재하지 않습니다.`;
+          return;
+        }
+
+        searchList.innerHTML = '';
+        games.forEach(g => {
+          const card = document.createElement('div');
+          card.className = 'game-card';
+          const thumbImg = g.thumb || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80';
+          const sourceClass = g.source || 'api';
+
+          card.innerHTML = `
+            <div class="game-thumb-container">
+              <img class="game-thumb" src="${thumbImg}" alt="${g.title}" onerror="this.src='https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&q=80'">
+              <div class="platform-badge">${g.steamAppID ? 'Steam' : 'PC'}</div>
+            </div>
+            <div class="game-info">
+              <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <span class="source-badge ${sourceClass}">${sourceClass.toUpperCase()}</span>
+              </div>
+              <div class="game-title" title="${g.title}">${g.title}</div>
+              <div class="price-row">
+                <span class="price-normal">최저가</span>
+                <span class="price-sale">${g.cheapestPrice}</span>
+              </div>
+              <button onclick="selectGameForCompare('${g.title.replace(/'/g, "\\'")}')" class="card-btn">가격 비교 & 상세 보기</button>
+            </div>
+          `;
+          searchList.appendChild(card);
+        });
+
+        addLog(`Found ${games.length} matching game(s) for "${keyword}"`);
+      } catch (e) {
+        searchList.style.display = 'none';
+        emptyState.style.display = 'block';
+        emptyState.innerHTML = `<span style="color: var(--accent-pink);">검색 실패: ${e.message}</span>`;
+      }
+    }
+
+    // Select a single game to display details & price comparison
+    async function selectGameForCompare(title) {
+      const resultsContainer = document.getElementById('search-results-container');
+      
+      resultsContainer.style.display = 'none';
+      addLog(`Fetching price comparison and details for selected game: "${title}"`);
+
+      try {
+        // 1. Fetch Price Comparison
+        const compareRes = await fetch(`/api/compare?title=${encodeURIComponent(title)}`);
+        const compareData = await compareRes.json();
+        
+        if (!compareData || !compareData.stores || compareData.stores.length === 0) {
+          addLog(`No store prices found for: "${title}"`);
+          return;
+        }
+
+        // 2. Fetch Game Info Details
+        const infoRes = await fetch(`/api/info?title=${encodeURIComponent(title)}`);
+        let infoData = null;
+        if (infoRes.ok) {
+          infoData = await infoRes.json();
+        }
+
+        // Bind Left: Details
+        document.getElementById('details-game-title').innerText = compareData.localizedTitle || compareData.title;
+        document.getElementById('details-game-desc').innerText = infoData ? infoData.description : '설명이 제공되지 않습니다.';
+        document.getElementById('details-developer').innerText = infoData ? infoData.developer : '-';
+        document.getElementById('details-publisher').innerText = infoData ? infoData.publisher : '-';
+        document.getElementById('details-release-date').innerText = infoData ? infoData.releaseDate : '-';
+        document.getElementById('details-genres').innerText = (infoData && infoData.genres) ? infoData.genres.join(', ') : '-';
+        document.getElementById('details-price').innerText = infoData ? infoData.price : '₩ 0';
+
+        // Bind Right: Prices Compare Table
+        const tbody = document.getElementById('prices-compare-body');
+        tbody.innerHTML = '';
+        compareData.stores.forEach(s => {
+          const tr = document.createElement('tr');
+          
+          const isBest = (compareData.bestDeal && s.store === compareData.bestDeal.store);
+          const storeLabel = isBest ? `<span class="store-badge" style="color: var(--accent-teal); border-color: var(--accent-teal); font-weight: 800;">🔥 ${s.store}</span>` : `<span class="store-badge">${s.store}</span>`;
+          const discText = s.discount > 0 ? `<strong style="color: var(--accent-pink); font-family: 'Outfit';">-${s.discount}%</strong>` : '<span style="color: var(--text-sub);">-</span>';
+
+          tr.innerHTML = `
+            <td>${storeLabel}</td>
+            <td>${discText}</td>
+            <td style="font-family: 'Outfit'; font-weight: 700;">₩ ${s.price.toLocaleString()}</td>
+            <td><a class="table-btn" href="${s.url}" target="_blank">이동</a></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        resultsContainer.style.display = 'grid';
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        addLog(`Successfully loaded price comparisons and metadata for "${title}"`);
+      } catch (e) {
+        addLog(`Failed to fetch details for "${title}": ${e.message}`);
+      }
+    }
+
+    // Init onload
+    window.onload = () => {
+      loadDbStatus();
+    };
+  </script>
+</body>
+</html>
