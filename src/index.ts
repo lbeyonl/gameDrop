@@ -49,15 +49,10 @@ if (isStdio) {
   const port = parseInt(process.env.PORT || "3000", 10);
   const fastify = Fastify({ logger: false });
 
-  const transports = new Map<string, StreamableHTTPServerTransport>();
-
-  function isInitializeRequest(body: unknown): boolean {
-    if (!body || typeof body !== "object") return false;
-    if (Array.isArray(body)) {
-      return body.some(msg => msg && typeof msg === "object" && "method" in msg && msg.method === "initialize");
-    }
-    return "method" in body && (body as { method: string }).method === "initialize";
-  }
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID()
+  });
+  await server.connect(transport);
 
   // Web UI 대시보드 렌더링 엔드포인트
   fastify.get("/", async (_request, reply) => {
@@ -181,57 +176,6 @@ if (isStdio) {
     method: ["GET", "POST", "DELETE"],
     url: "/mcp",
     handler: async (request, reply) => {
-      // 1. 세션 ID 확인 (헤더 이름은 mcp-session-id, 소문자로 파싱됨)
-      const sessionId = request.headers["mcp-session-id"] as string | undefined;
-
-      let transport: StreamableHTTPServerTransport | undefined;
-
-      if (sessionId) {
-        transport = transports.get(sessionId);
-      }
-
-      // 2. 세션이 없고 POST 요청인 경우, initialization 요청인지 확인하여 새로 생성
-      if (!transport && request.method === "POST" && isInitializeRequest(request.body)) {
-        logger.info("Initializing new MCP Streamable HTTP session");
-        
-        const newTransport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (id) => {
-            transports.set(id, newTransport);
-            logger.info(`MCP session initialized: ${id}`);
-          },
-          onsessionclosed: (id) => {
-            transports.delete(id);
-            logger.info(`MCP session closed: ${id}`);
-            newTransport.close().catch(() => {});
-          }
-        });
-
-        newTransport.onclose = () => {
-          if (newTransport.sessionId) {
-            transports.delete(newTransport.sessionId);
-            logger.info(`MCP transport closed for session: ${newTransport.sessionId}`);
-          }
-        };
-
-        await server.connect(newTransport);
-        transport = newTransport;
-      }
-
-      // 3. 세션이 없는 비정상 요청에 대한 에러 처리
-      if (!transport) {
-        reply.status(400).send({
-          jsonrpc: "2.0",
-          error: {
-            code: -32000,
-            message: "Bad Request: Invalid session or server not initialized"
-          },
-          id: null
-        });
-        return;
-      }
-
-      // 4. 요청 처리 위임
       reply.hijack();
       try {
         await transport.handleRequest(request.raw, reply.raw, request.body);
