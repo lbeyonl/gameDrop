@@ -24,7 +24,7 @@ GameDrop MCP 서버는 스팀(Steam), 에픽게임즈 스토어(Epic Games Store
 프로젝트 루트에 `.env` 파일을 생성하고 아래 형식을 참고하여 설정합니다:
 
 ```env
-# HTTP 서버 포트 (SSE 모드일 때만 적용됨, 기본값: 3000)
+# HTTP 서버 포트 (Streamable HTTP 모드일 때만 적용됨, 기본값: 3000)
 PORT=3000
 
 # 트랜스포트 기본 모드 (sse 또는 stdio)
@@ -86,10 +86,10 @@ docker-compose up -d --build
 
 ## MCP 플랫폼별 등록 및 사용법
 
-### 1. Kakao PlayMCP (SSE 기반 등록)
-PlayMCP는 원격 HTTP 기반의 SSE(Server-Sent Events) 프로토콜을 사용해 MCP 서버를 등록할 수 있습니다.
-- **SSE Connection URL**: `http://<서버-도메인-또는-IP>:3000/sse`
-- **HTTP Method**: GET
+### 1. Kakao PlayMCP (Streamable HTTP 기반 등록)
+PlayMCP는 최신 MCP SDK의 Streamable HTTP 프로토콜을 사용해 MCP 서버를 등록할 수 있습니다.
+- **MCP Endpoint URL**: `http://<서버-도메인-또는-IP>:3000/mcp`
+- **HTTP Method**: GET/POST/DELETE (단일 /mcp 엔드포인트에서 모두 처리)
 
 ### 2. Claude Desktop (stdio 기반 등록)
 Claude Desktop App의 MCP 설정 파일(`claude_desktop_config.json`)을 다음과 같이 편집하여 추가합니다:
@@ -111,8 +111,8 @@ Claude Desktop App의 MCP 설정 파일(`claude_desktop_config.json`)을 다음�
 }
 ```
 
-### 3. ChatGPT MCP (stdio/SSE 기반 등록)
-사용하시는 ChatGPT MCP 커넥터 클라이언트의 지침에 따라 stdio 명령을 추가하거나, 실행 중인 SSE 서비스 URL을 기입하여 연동합니다.
+### 3. ChatGPT MCP (stdio/Streamable HTTP 기반 등록)
+사용하시는 ChatGPT MCP 커넥터 클라이언트의 지침에 따라 stdio 명령을 추가하거나, 실행 중인 Streamable HTTP 서비스 URL(`http://<서버-도메인-또는-IP>:3000/mcp`)을 기입하여 연동합니다.
 
 ---
 

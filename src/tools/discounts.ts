@@ -4,10 +4,20 @@ import { discountsSchema } from "../schemas/toolSchemas.js";
 import { handleToolError } from "../utils/errorHandler.js";
 
 export function registerDiscountsTool(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "gameDropDiscounts",
-    "현재 할인 중인 게임 조회 (platform: all | steam | epic | gog, minDiscount: 최소 할인율 %, limit: 가져올 개수)",
-    discountsSchema,
+    {
+      title: "gameDropDiscounts",
+      description: "현재 할인 중인 게임 조회 (platform: all | steam | epic | gog, minDiscount: 최소 할인율 %, limit: 가져올 개수)",
+      inputSchema: discountsSchema,
+      annotations: {
+        title: "gameDropDiscounts",
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: true,
+        idempotentHint: true
+      }
+    },
     async ({ platform, minDiscount, limit }) => {
       try {
         const games = await gameService.getDiscounts(platform, minDiscount, limit);

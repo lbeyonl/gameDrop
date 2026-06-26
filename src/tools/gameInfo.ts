@@ -4,10 +4,20 @@ import { gameInfoSchema } from "../schemas/toolSchemas.js";
 import { handleToolError } from "../utils/errorHandler.js";
 
 export function registerGameInfoTool(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "gameDropGameInfo",
-    "게임 상세 정보 조회 (title: 상세 조회할 게임 타이틀 이름)",
-    gameInfoSchema,
+    {
+      title: "gameDropGameInfo",
+      description: "게임 상세 정보 조회 (title: 상세 조회할 게임 타이틀 이름)",
+      inputSchema: gameInfoSchema,
+      annotations: {
+        title: "gameDropGameInfo",
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: true,
+        idempotentHint: true
+      }
+    },
     async ({ title }) => {
       try {
         const details = await gameService.getGameInfo(title);

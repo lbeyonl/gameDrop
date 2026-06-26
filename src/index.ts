@@ -3,7 +3,8 @@ dotenv.config();
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import fs from "fs";
 import path from "path";
@@ -44,10 +45,19 @@ if (isStdio) {
   await server.connect(transport);
   logger.info("GameDrop MCP Server started in stdio mode");
 } else {
-  // SSE 모드로 구동 (카카오 PlayMCP, ChatGPT MCP 등)
+  // Streamable HTTP 모드로 구동 (카카오 PlayMCP, ChatGPT MCP 등)
   const port = parseInt(process.env.PORT || "3000", 10);
   const fastify = Fastify({ logger: false });
-  const transports = new Map<string, SSEServerTransport>();
+
+  const transports = new Map<string, StreamableHTTPServerTransport>();
+
+  function isInitializeRequest(body: unknown): boolean {
+    if (!body || typeof body !== "object") return false;
+    if (Array.isArray(body)) {
+      return body.some(msg => msg && typeof msg === "object" && "method" in msg && msg.method === "initialize");
+    }
+    return "method" in body && (body as { method: string }).method === "initialize";
+  }
 
   // Web UI 대시보드 렌더링 엔드포인트
   fastify.get("/", async (_request, reply) => {
@@ -166,46 +176,74 @@ if (isStdio) {
     return reply.send({ status: "sync_started", message: "Background sync triggered successfully." });
   });
 
-  // SSE 연결 설립 엔드포인트
-  fastify.get("/sse", async (request, reply) => {
-    logger.info("New SSE client connection request received");
-    reply.hijack();
+  // MCP 단일 엔드포인트 통합
+  fastify.route({
+    method: ["GET", "POST", "DELETE"],
+    url: "/mcp",
+    handler: async (request, reply) => {
+      // 1. 세션 ID 확인 (헤더 이름은 mcp-session-id, 소문자로 파싱됨)
+      const sessionId = request.headers["mcp-session-id"] as string | undefined;
 
-    const rawRes = reply.raw;
-    // SSE 전송 채널 생성 (클라이언트는 메시지 수신 후 /messages로 POST 요청을 보냄)
-    const transport = new SSEServerTransport("/messages", rawRes);
-    
-    const sessionId = transport.sessionId;
-    transports.set(sessionId, transport);
-    logger.info(`SSE client session established: ${sessionId}`);
+      let transport: StreamableHTTPServerTransport | undefined;
 
-    rawRes.on("close", () => {
-      logger.info(`SSE client session closed: ${sessionId}`);
-      transports.delete(sessionId);
-      transport.close().catch((err) => {
-        logger.error(`Error closing SSE transport: ${err.message}`);
-      });
-    });
+      if (sessionId) {
+        transport = transports.get(sessionId);
+      }
 
-    await server.connect(transport);
-  });
+      // 2. 세션이 없고 POST 요청인 경우, initialization 요청인지 확인하여 새로 생성
+      if (!transport && request.method === "POST" && isInitializeRequest(request.body)) {
+        logger.info("Initializing new MCP Streamable HTTP session");
+        
+        const newTransport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (id) => {
+            transports.set(id, newTransport);
+            logger.info(`MCP session initialized: ${id}`);
+          },
+          onsessionclosed: (id) => {
+            transports.delete(id);
+            logger.info(`MCP session closed: ${id}`);
+            newTransport.close().catch(() => {});
+          }
+        });
 
-  // 메시지 수신 엔드포인트
-  fastify.post("/messages", async (request, reply) => {
-    const sessionId = (request.query as { sessionId?: string }).sessionId;
-    if (!sessionId) {
-      reply.status(400).send({ error: "Missing sessionId query parameter" });
-      return;
+        newTransport.onclose = () => {
+          if (newTransport.sessionId) {
+            transports.delete(newTransport.sessionId);
+            logger.info(`MCP transport closed for session: ${newTransport.sessionId}`);
+          }
+        };
+
+        await server.connect(newTransport);
+        transport = newTransport;
+      }
+
+      // 3. 세션이 없는 비정상 요청에 대한 에러 처리
+      if (!transport) {
+        reply.status(400).send({
+          jsonrpc: "2.0",
+          error: {
+            code: -32000,
+            message: "Bad Request: Invalid session or server not initialized"
+          },
+          id: null
+        });
+        return;
+      }
+
+      // 4. 요청 처리 위임
+      reply.hijack();
+      try {
+        await transport.handleRequest(request.raw, reply.raw, request.body);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.error(`MCP handleRequest error: ${msg}`);
+        if (!reply.raw.headersSent) {
+          reply.raw.writeHead(500, { "Content-Type": "application/json" });
+          reply.raw.end(JSON.stringify({ error: "Internal server error", message: msg }));
+        }
+      }
     }
-
-    const transport = transports.get(sessionId);
-    if (!transport) {
-      reply.status(404).send({ error: `No active SSE session found for ID: ${sessionId}` });
-      return;
-    }
-
-    // Fastify가 이미 바디를 파싱했으므로 파싱된 바디(request.body)를 세 번째 인자로 함께 전달
-    await transport.handlePostMessage(request.raw, reply.raw, request.body as Record<string, unknown>);
   });
 
   // 서버 바인딩 및 시작
@@ -214,7 +252,7 @@ if (isStdio) {
       logger.error(`Failed to start Fastify server: ${err.message}`);
       process.exit(1);
     }
-    logger.info(`GameDrop MCP Server listening in SSE mode at ${address}`);
+    logger.info(`GameDrop MCP Server listening in Streamable HTTP mode at ${address}`);
   });
 }
 

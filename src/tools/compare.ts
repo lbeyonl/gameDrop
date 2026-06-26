@@ -4,10 +4,20 @@ import { comparePriceSchema } from "../schemas/toolSchemas.js";
 import { handleToolError } from "../utils/errorHandler.js";
 
 export function registerCompareTool(server: McpServer) {
-  server.tool(
+  server.registerTool(
     "gameDropComparePrice",
-    "게임 가격 비교 및 최저가 조회 (title: 비교할 게임 타이틀 이름)",
-    comparePriceSchema,
+    {
+      title: "gameDropComparePrice",
+      description: "게임 가격 비교 및 최저가 조회 (title: 비교할 게임 타이틀 이름)",
+      inputSchema: comparePriceSchema,
+      annotations: {
+        title: "gameDropComparePrice",
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: true,
+        idempotentHint: true
+      }
+    },
     async ({ title }) => {
       try {
         const result = await gameService.comparePrice(title);
