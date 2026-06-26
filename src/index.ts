@@ -49,6 +49,19 @@ if (isStdio) {
   const port = parseInt(process.env.PORT || "3000", 10);
   const fastify = Fastify({ logger: false });
 
+  // CORS 및 OPTIONS preflight 처리
+  fastify.addHook("onRequest", async (request, reply) => {
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    reply.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, mcp-protocol-version, Authorization");
+    reply.header("Access-Control-Expose-Headers", "mcp-session-id, mcp-protocol-version");
+
+    if (request.method === "OPTIONS") {
+      reply.status(204).send();
+      return reply; // Fastify requires returning reply when hijacking or short-circuiting in async hook
+    }
+  });
+
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID()
   });
