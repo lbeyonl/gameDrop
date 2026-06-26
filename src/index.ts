@@ -23,24 +23,29 @@ import { gameService } from "./services/game.service.js";
 await dbService.initialize();
 schedulerService.start();
 
-// 2. MCP 서버 초기화
-const server = new McpServer({
-  name: "gamedrop-mcp",
-  version: "1.0.0"
-});
+// 2. MCP 서버 팩토리 함수 정의 (각 세션마다 고유한 서버 인스턴스 생성)
+const createMcpServer = () => {
+  const s = new McpServer({
+    name: "gamedrop-mcp",
+    version: "1.0.0"
+  });
 
-// 3. 도구(Tools) 등록
-registerFreeGamesTool(server);
-registerDiscountsTool(server);
-registerSearchTool(server);
-registerCompareTool(server);
-registerGameInfoTool(server);
+  // 도구(Tools) 등록
+  registerFreeGamesTool(s);
+  registerDiscountsTool(s);
+  registerSearchTool(s);
+  registerCompareTool(s);
+  registerGameInfoTool(s);
 
-// 4. 환경 변수 및 인자 분석을 통해 트랜스포트 설정
+  return s;
+};
+
+// 3. 환경 변수 및 인자 분석을 통해 트랜스포트 설정
 const isStdio = process.argv.includes("--transport=stdio") || process.env.TRANSPORT === "stdio";
 
 if (isStdio) {
   // stdio 모드로 구동 (Claude Desktop, 로컬 CLI 테스트 등)
+  const server = createMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   logger.info("GameDrop MCP Server started in stdio mode");
@@ -56,16 +61,19 @@ if (isStdio) {
     reply.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, mcp-protocol-version, Authorization");
     reply.header("Access-Control-Expose-Headers", "mcp-session-id, mcp-protocol-version");
 
+    reply.raw.setHeader("Access-Control-Allow-Origin", "*");
+    reply.raw.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+    reply.raw.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, mcp-session-id, mcp-protocol-version, Authorization");
+    reply.raw.setHeader("Access-Control-Expose-Headers", "mcp-session-id, mcp-protocol-version");
+
     if (request.method === "OPTIONS") {
       reply.status(204).send();
       return reply; // Fastify requires returning reply when hijacking or short-circuiting in async hook
     }
   });
 
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID()
-  });
-  await server.connect(transport);
+  // active 세션 트랜스포트 보관용 맵 정의
+  const transports: Record<string, StreamableHTTPServerTransport> = {};
 
   // Web UI 대시보드 렌더링 엔드포인트
   fastify.get("/", async (_request, reply) => {
@@ -191,12 +199,65 @@ if (isStdio) {
     handler: async (request, reply) => {
       reply.hijack();
       try {
-        await transport.handleRequest(request.raw, reply.raw, request.body);
+        const body = request.body as any;
+        const isInitialize = request.method === "POST" && 
+                             body && 
+                             typeof body === "object" && 
+                             body.method === "initialize";
+
+        let sessionTransport: StreamableHTTPServerTransport | undefined;
+
+        if (isInitialize) {
+          logger.info("New initialize request received, creating new session...");
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: () => randomUUID(),
+            onsessioninitialized: (sessionId) => {
+              logger.info(`Session initialized with ID: ${sessionId}`);
+              transports[sessionId] = transport;
+            }
+          });
+
+          transport.onclose = () => {
+            const sid = transport.sessionId;
+            if (sid && transports[sid]) {
+              logger.info(`Transport closed for session ${sid}, removing from transports map`);
+              delete transports[sid];
+            }
+          };
+
+          const server = createMcpServer();
+          await server.connect(transport);
+          await transport.handleRequest(request.raw, reply.raw, body);
+        } else {
+          const sessionId = (request.headers["mcp-session-id"] || request.headers["Mcp-Session-Id"]) as string | undefined;
+          
+          if (sessionId && transports[sessionId]) {
+            sessionTransport = transports[sessionId];
+          }
+
+          if (!sessionTransport) {
+            logger.warn(`Session not found or missing session ID for request: ${request.method} ${request.url}`);
+            if (!reply.raw.headersSent) {
+              reply.raw.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+              reply.raw.end(JSON.stringify({
+                jsonrpc: "2.0",
+                error: {
+                  code: -32000,
+                  message: "Bad Request: Invalid session or server not initialized"
+                },
+                id: null
+              }));
+            }
+            return;
+          }
+
+          await sessionTransport.handleRequest(request.raw, reply.raw, body);
+        }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         logger.error(`MCP handleRequest error: ${msg}`);
         if (!reply.raw.headersSent) {
-          reply.raw.writeHead(500, { "Content-Type": "application/json" });
+          reply.raw.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           reply.raw.end(JSON.stringify({ error: "Internal server error", message: msg }));
         }
       }
